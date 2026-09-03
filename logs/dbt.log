@@ -99,3 +99,18 @@ Happy modeling!
 [0m22:37:12.315498 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'invocation', 'label': 'end', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x000001D908B63C50>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x000001D908BAEDE0>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x000001D908BACAA0>]}
 [0m22:37:12.316513 [debug] [MainThread]: Flushing usage events
 [0m22:37:13.591262 [debug] [MainThread]: An error was encountered while trying to flush usage events
+[0m11:15:47.033720 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'invocation', 'label': 'start', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x000002A456CC4B60>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x000002A459A9D190>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x000002A459A9D0D0>]}
+
+
+============================== 11:15:47.039079 | 9cc97632-c565-4f76-866a-9e681ac1ea09 ==============================
+[0m11:15:47.039079 [info ] [MainThread]: Running with dbt=1.12.3
+[0m11:15:47.039079 [debug] [MainThread]: running dbt with arguments {'static_parser': 'True', 'no_print': 'None', 'maximum_seed_size_mib': '1', 'warn_error_options': 'WarnErrorOptionsV2(error=[], warn=[], silence=[])', 'target_path': 'None', 'version_check': 'True', 'printer_width': '80', 'write_json': 'True', 'empty': 'False', 'log_cache_events': 'False', 'introspect': 'True', 'cache_selected_only': 'False', 'fail_fast': 'False', 'debug': 'False', 'log_format': 'default', 'profiles_dir': 'C:\\Users\\Lenovo\\.dbt', 'send_anonymous_usage_stats': 'True', 'quiet': 'False', 'warn_error': 'None', 'partial_parse': 'True', 'use_colors': 'True', 'hints_enabled': 'True', 'invocation_command': 'dbt run --select marts', 'use_experimental_parser': 'False', 'indirect_selection': 'eager', 'log_path': 'logs'}
+[0m11:15:47.040049 [error] [MainThread]: [[31mERROR[0m]: Encountered an error:
+Runtime Error
+  No dbt_project.yml found at expected path C:\Users\Lenovo\Documents\GitHub\Food-Delivery-Data-Project\dbt_project.yml
+  Verify that each entry within packages.yml (and their transitive dependencies) contains a file named dbt_project.yml
+  
+[0m11:15:47.041049 [debug] [MainThread]: Command `dbt run` failed at 11:15:47.041049 after 0.16 seconds
+[0m11:15:47.041049 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'invocation', 'label': 'end', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x000002A4598A4BC0>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x000002A456CC4B60>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x000002A459614D40>]}
+[0m11:15:47.041049 [debug] [MainThread]: Flushing usage events
+[0m11:15:48.310812 [debug] [MainThread]: An error was encountered while trying to flush usage events
