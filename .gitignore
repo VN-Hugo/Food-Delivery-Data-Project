@@ -1,2 +1,4 @@
 Cred
 .env
+.user.yml
+profiles.yml

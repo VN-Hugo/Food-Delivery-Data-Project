@@ -1,83 +1,60 @@
 # Food Delivery Data Project
 
-Dự án phân tích dữ liệu giao đồ ăn theo mô hình data pipeline hiện đại với **Snowflake**, **dbt**, **Apache Airflow**, **Gemini** và **Streamlit**.
+Dự án phân tích dữ liệu giao đồ ăn theo mô hình pipeline dữ liệu hiện đại, tích hợp **Snowflake**, **dbt**, **Apache Airflow**, **Gemini AI** và **Streamlit**. Mục tiêu là biến dữ liệu CSV mẫu thành kho dữ liệu phân tích, từ đó cho phép đặt câu hỏi bằng ngôn ngữ tự nhiên và xem các chỉ số kinh doanh trực quan.
 
-Pipeline nhận dữ liệu CSV, nạp vào Snowflake, làm sạch và xây dựng các bảng phân tích bằng dbt. Review của khách hàng được Gemini phân loại sentiment/chủ đề, sau đó người dùng có thể hỏi dữ liệu bằng ngôn ngữ tự nhiên qua hai ứng dụng Streamlit.
+> Dự án này mô phỏng hệ thống dữ liệu cho nền tảng Zomato/food delivery với dữ liệu mẫu thực tế theo mô hình order, restaurant, customer, food và reviews.
 
-> Dự án này dùng dữ liệu mẫu theo ngữ cảnh Zomato/food delivery.
+## Tổng quan dự án
 
-## Mục tiêu
+- Nạp dữ liệu từ các file CSV vào Snowflake.
+- Chuẩn hóa dữ liệu bằng dbt model theo tầng staging và marts.
+- Tạo pipeline tự động hóa hằng ngày với Airflow.
+- Dùng Gemini để enrich review khách hàng (sentiment, topic, key issue).
+- Xây dựng 2 ứng dụng AI trên Streamlit:
+  - Text-to-SQL: hỏi dữ liệu bằng ngôn ngữ tự nhiên.
+  - RAG review chat: trả lời insight từ review khách hàng.
+- Kết nối dữ liệu lên dashboard BI bằng Power BI / mart data.
 
-- Nạp dữ liệu nhà hàng, người dùng, món ăn, menu, đơn hàng, chi tiết đơn hàng và review vào Snowflake.
-- Chuẩn hóa dữ liệu bằng dbt staging models.
-- Xây dựng dimension, fact và các bảng mart phục vụ phân tích.
-- Tự động hóa pipeline hằng ngày bằng Airflow chạy trên Docker.
-- Dùng Gemini để enrich review khách hàng.
-- Cho phép hỏi số liệu bằng text-to-SQL và hỏi insight từ review bằng RAG.
+## Kiến trúc hệ thống
 
-## Kiến trúc
+![Kiến trúc hệ thống](img/Architecture.png)
 
 ```mermaid
 flowchart LR
-    CSV[CSV files in data/] --> S3[Object storage / Snowflake stage]
-    S3 --> RAW[Snowflake RAW tables]
+    CSV[CSV files in data/] --> RAW[Snowflake RAW tables]
     RAW --> STG[dbt STAGING views]
     STG --> MART[dbt MARTS tables]
     RAW --> ENRICH[Gemini review enrichment]
     ENRICH --> AI[Snowflake AI tables]
-    AI --> AIMART[dbt AI models]
+    AI --> AITABLE[dbt AI models]
     MART --> SQLAPP[Streamlit text_to_sql.py]
     RAW --> RAG[TF-IDF retrieval]
     RAG --> RAGAPP[Streamlit rag_chat.py]
-    AIMART --> RAGAPP
+    AITABLE --> RAGAPP
 ```
 
 ### Luồng Airflow hằng ngày
 
 ```mermaid
 flowchart TD
-    A[reload_raw\nCOPY INTO RAW] --> B[dbt_build_core\nSTAGING + MARTS]
-    B --> C[enrich_reviews\nGemini]
-    C --> D[dbt_build_ai\nAI models]
+    A[reload_raw
+COPY INTO RAW] --> B[dbt_build_core
+STAGING + MARTS]
+    B --> C[enrich_reviews
+Gemini]
+    C --> D[dbt_build_ai
+AI models]
 ```
 
-DAG tương ứng là `airflow/dags/zomato_batch.py`, có `schedule="@daily"` và `catchup=False`.
-
-## Cấu trúc repository
-
-```text
-.
-├── ai/
-│   ├── enrich_reviews.py       # Gemini phân loại review và ghi vào ZOMATO.AI
-│   ├── rag_chat.py             # Streamlit hỏi đáp dựa trên review liên quan
-│   └── text_to_sql.py          # Streamlit chuyển câu hỏi thành SQL Snowflake
-├── airflow/
-│   ├── dags/zomato_batch.py    # DAG nạp dữ liệu, dbt và AI enrichment
-│   ├── docker-compose.yaml     # Airflow 3 + PostgreSQL metadata database
-│   └── Dockerfile              # Image Airflow và môi trường dbt
-├── data/
-│   ├── food.csv
-│   ├── menu.csv
-│   ├── order_items.csv
-│   ├── orders.csv
-│   ├── restaurant.csv
-│   ├── reviews.csv
-│   └── users.csv
-├── zomato/
-│   ├── dbt_project.yml
-│   ├── models/staging/         # Làm sạch và chuẩn hóa nguồn RAW
-│   ├── models/marts/           # Fact, dimension, business marts
-│   └── target/                 # dbt artifacts, thường không cần commit
-├── .gitignore
-├── LICENSE
-└── README.md
-```
+DAG tương ứng là `airflow/dags/zomato_batch.py`, chạy theo lịch `@daily` với `catchup=False`.
 
 ## Data model
 
+![Data model](img/DataModel.png)
+
 ### Nguồn RAW
 
-Các bảng nguồn được khai báo trong `zomato/models/staging/_sources.yml`:
+Các bảng nguồn trong `zomato/models/staging/_sources.yml`:
 
 - `ZOMATO.RAW.RESTAURANTS`
 - `ZOMATO.RAW.USERS`
@@ -87,9 +64,9 @@ Các bảng nguồn được khai báo trong `zomato/models/staging/_sources.yml
 - `ZOMATO.RAW.ORDER_ITEMS`
 - `ZOMATO.RAW.REVIEWS`
 
-### STAGING
+### Staging models
 
-Các model staging đọc từ RAW và chuẩn hóa kiểu dữ liệu, tên cột, giá trị rỗng và một số trường dẫn xuất:
+Các model tầng staging làm sạch và chuẩn hóa dữ liệu:
 
 - `stg_restaurants`
 - `stg_users`
@@ -99,36 +76,79 @@ Các model staging đọc từ RAW và chuẩn hóa kiểu dữ liệu, tên c�
 - `stg_order_items`
 - `stg_reviews`
 
-Trong `dbt_project.yml`, staging được materialize thành **view** trong schema `STAGING`.
+### Mart models
 
-### MARTS
+Các model mart chính bao gồm:
 
-Các model mart chính gồm:
+- `fct_orders`: fact đơn hàng
+- `fact_order_items`: fact chi tiết món trong đơn
+- `dim_customer`: dimension khách hàng
+- `dim_date`: dimension ngày
+- `dim_food`: dimension món ăn
+- `dim_restaurants`: dimension nhà hàng
+- `mart_daily_city_revenune`: doanh thu và số đơn theo thành phố/ngày
+- `mart_delivery_sla`: thời gian giao hàng
+- `mart_restaurant_performance`: hiệu suất nhà hàng
+- `mart_review_insights`: insight review sau enrich bằng Gemini
 
-- `fct_orders`: fact đơn hàng.
-- `fact_order_items`: fact chi tiết món trong đơn.
-- `dim_customer`: dimension khách hàng.
-- `dim_date`: dimension ngày.
-- `dim_food`: dimension món ăn.
-- `dim_restaurants`: dimension nhà hàng.
-- `mart_daily_city_revenune`: doanh thu, số đơn và tỷ lệ hủy theo thành phố/ngày.
-- `mart_delivery_sla`: chỉ số thời gian giao hàng.
-- `mart_restaurant_performance`: hiệu suất nhà hàng.
-- `mart_review_insights`: insight review sau khi enrich bằng Gemini.
+## Cấu trúc repository
 
-Marts được materialize chủ yếu thành **table** trong schema `MARTS`. Hai fact order sử dụng incremental merge theo khóa duy nhất.
+```text
+.
+├── ai/
+│   ├── enrich_reviews.py       # Gemini phân loại review và ghi vào ZOMATO.AI
+│   ├── rag_chat.py             # Streamlit hỏi đáp theo review liên quan
+│   └── text_to_sql.py          # Streamlit chuyển câu hỏi thành SQL Snowflake
+├── airflow/
+│   ├── dags/zomato_batch.py    # DAG nạp dữ liệu, dbt và AI enrichment
+│   ├── docker-compose.yaml     # Airflow 3 + PostgreSQL metadata DB
+│   └── Dockerfile              # Image Airflow và môi trường dbt
+├── data/
+│   ├── food.csv
+│   ├── menu.csv
+│   ├── order_items.csv
+│   ├── orders.csv
+│   ├── restaurant.csv
+│   ├── reviews.csv
+│   └── users.csv
+├── img/
+│   ├── Airflow.png
+│   ├── Architecture.png
+│   ├── ChatAIReviews.png
+│   ├── DataModel.png
+│   ├── PowerBi.png
+│   └── RAG.png
+├── snowflake/
+│   ├── 01_setup.sql
+│   ├── 02_storage_integration.sql
+│   ├── 03_stage_and_formats.sql
+│   ├── 04_raw_tables.sql
+│   ├── 05_copy_into.sql
+│   └── 06_powerbi_access.sql
+├── zomato/
+│   ├── dbt_project.yml
+│   ├── profiles.yml
+│   ├── models/
+│   └── target/
+├── .gitignore
+├── LICENSE
+├── README.md
+└── logs/
+```
 
 ## Ứng dụng AI
 
-### Text-to-SQL: `ai/text_to_sql.py`
+### 1) Text-to-SQL
 
-Ứng dụng Streamlit cho phép hỏi các chỉ số trong Snowflake bằng tiếng Anh. Gemini tạo một câu SQL `SELECT`, ứng dụng kiểm tra câu SQL rồi thực thi trên Snowflake và hiển thị bảng kết quả hoặc biểu đồ.
+File: `ai/text_to_sql.py`
+
+Ứng dụng Streamlit cho phép người dùng đặt câu hỏi bằng ngôn ngữ tự nhiên và tự động sinh SQL trên Snowflake. Nếu câu SQL hợp lệ, hệ thống sẽ thực thi truy vấn và trả về kết quả dưới dạng bảng hoặc biểu đồ.
 
 Ví dụ câu hỏi:
 
-- `Top 10 cities by GMV`
-- `Average delivery time by city, worst first`
-- `Cancel rate by payment method`
+- Top 10 cities by GMV
+- Average delivery time by city, worst first
+- Cancel rate by payment method
 
 Chạy:
 
@@ -137,16 +157,20 @@ cd ai
 streamlit run text_to_sql.py
 ```
 
-Mở `http://localhost:8501`.
+Truy cập: `http://localhost:8501`
 
-### RAG review chat: `ai/rag_chat.py`
+### 2) RAG review chat
 
-Ứng dụng này phục vụ câu hỏi về nội dung review:
+File: `ai/rag_chat.py`
 
-1. Đọc một mẫu review từ Snowflake.
-2. Dùng TF-IDF để tìm các review liên quan nhất.
-3. Gửi câu hỏi và các review liên quan cho Gemini.
-4. Hiển thị câu trả lời cùng các review đã được sử dụng.
+Ứng dụng này trả lời câu hỏi dựa trên nội dung reviews khách hàng:
+
+1. Lấy một tập mẫu review từ Snowflake.
+2. Dùng TF-IDF để tìm review liên quan nhất.
+3. Chuyển câu hỏi + review liên quan cho Gemini.
+4. Trả lời kết luận cùng các review được sử dụng để hỗ trợ lý giải.
+
+![RAG review chat](img/RAG.png)
 
 Chạy:
 
@@ -155,16 +179,20 @@ cd ai
 streamlit run rag_chat.py
 ```
 
-### Review enrichment: `ai/enrich_reviews.py`
+### 3) Review enrichment bằng Gemini
 
-Script batch đọc review mới từ `ZOMATO.RAW.REVIEWS`, dùng Gemini để tạo:
+File: `ai/enrich_reviews.py`
+
+Script batch đọc review mới từ `ZOMATO.RAW.REVIEWS` và tạo các trường:
 
 - `sentiment_label`
 - `sentiment_score`
 - `topic`
 - `key_issue`
 
-Kết quả được ghi vào `ZOMATO.AI.REVIEW_ENRICHED`. Script không xử lý lại review đã tồn tại trong bảng đích.
+Kết quả được lưu vào `ZOMATO.AI.REVIEW_ENRICHED`.
+
+![Chat AI review](img/ChatAIReviews.png)
 
 Chạy thủ công:
 
@@ -173,13 +201,53 @@ cd ai
 python enrich_reviews.py
 ```
 
-## Yêu cầu cài đặt
+## Orchestration & deployment
+
+### Airflow
+
+![Airflow DAG](img/Airflow.png)
+
+Pipeline dữ liệu được orchestrate bằng Airflow với DAG `zomato_batch`:
+
+```powershell
+cd airflow
+docker compose build
+docker compose up -d
+```
+
+Airflow UI:
+
+```text
+http://localhost:8080
+```
+
+Tài khoản mặc định:
+
+```text
+Username: admin
+Password: admin
+```
+
+### Power BI / BI layer
+
+![Power BI dashboard](img/PowerBi.png)
+
+Mô hình dữ liệu marts hỗ trợ kết nối tới Power BI nhằm xây dựng dashboard KPI như:
+
+- doanh thu theo thành phố
+- tỷ lệ hủy đơn
+- thời gian giao hàng
+- hiệu suất nhà hàng
+- cảm xúc khách hàng từ review
+
+## Yêu cầu môi trường
 
 - Python 3.x
-- Docker Desktop và Docker Compose
-- Tài khoản Snowflake có database/schema/warehouse phù hợp
+- Docker Desktop
+- Docker Compose
+- Tài khoản Snowflake có warehouse/database/schema phù hợp
 - API key Gemini
-- Các Python packages cần thiết cho ứng dụng AI:
+- Các package Python cần thiết:
 
 ```powershell
 pip install streamlit pandas numpy snowflake-connector-python google-genai python-dotenv scikit-learn
@@ -187,9 +255,7 @@ pip install streamlit pandas numpy snowflake-connector-python google-genai pytho
 
 ## Cấu hình biến môi trường
 
-Tạo file `ai/.env` trên máy local hoặc file `.env` phù hợp với cách bạn chạy ứng dụng. Không commit file này.
-
-Ví dụ cấu hình, dùng placeholder thay vì credential thật:
+Tạo file `ai/.env` hoặc file `.env` phù hợp với môi trường chạy ứng dụng, không commit secret vào Git.
 
 ```dotenv
 GEMINI_API_KEY=your_gemini_api_key
@@ -201,8 +267,6 @@ SNOWFLAKE_DATABASE=ZOMATO
 SNOWFLAKE_SCHEMA=RAW
 SNOWFLAKE_ROLE=DBT_ROLE
 ```
-
-Các script AI gọi `load_dotenv()` và đọc các biến trên từ environment.
 
 ## Chạy dbt thủ công
 
@@ -224,13 +288,13 @@ Kiểm tra kết nối:
 dbt debug --profiles-dir .
 ```
 
-Build phần core:
+Build core models:
 
 ```powershell
 dbt build --exclude tag:ai --profiles-dir .
 ```
 
-Build các model AI:
+Build AI models:
 
 ```powershell
 dbt build --select tag:ai --profiles-dir .
@@ -242,49 +306,7 @@ Chạy test:
 dbt test --profiles-dir .
 ```
 
-`profiles.yml` cần được cấu hình theo môi trường Snowflake local của bạn. Không đặt password trực tiếp vào file dbt hoặc commit secret vào Git.
-
-## Chạy Airflow bằng Docker
-
-Từ thư mục `airflow/`:
-
-```powershell
-cd airflow
-docker compose build
-docker compose up -d
-```
-
-Airflow UI:
-
-```text
-http://localhost:8080
-```
-
-Thông tin đăng nhập mặc định được tạo trong `docker-compose.yaml`:
-
-```text
-Username: admin
-Password: admin
-```
-
-Trong Airflow, bật DAG `zomato_batch` để chạy thủ công hoặc chờ lịch hằng ngày.
-
-Dừng các container:
-
-```powershell
-docker compose down
-```
-
-Xem log:
-
-```powershell
-docker compose logs -f scheduler
-docker compose logs -f dag-processor
-```
-
 ## Kiểm tra nhanh
-
-Kiểm tra cú pháp Python:
 
 ```powershell
 python -m py_compile ai/text_to_sql.py
@@ -297,6 +319,17 @@ Kiểm tra Gemini SDK:
 ```powershell
 python -c "from google import genai; print('google.genai import ok')"
 ```
+
+## Kết luận
+
+Dự án này là một ví dụ thực tế về pipeline dữ liệu modern stack: ingest → cleanse → warehouse → model → AI enrichment → analytics → natural language interface. Nó phù hợp để demo data engineering, analytics engineering và ứng dụng AI trên dữ liệu doanh nghiệp.
+
+Nếu bạn muốn, tôi có thể tiếp tục giúp bạn:
+
+- viết thêm `LICENSE`/`CONTRIBUTING.md`
+- tạo dashboard demo trong Power BI hoặc Streamlit
+- tối ưu README theo phong cách GitHub profile / portfolio
+- tách project này thành 1 bài báo cáo hoặc demo slide
 
 ## Lưu ý cấu hình hiện tại
 
